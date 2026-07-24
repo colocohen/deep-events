@@ -275,7 +275,7 @@ Honesty section. Skip this library if:
 
 ## 📐 Design Philosophy
 
-Four principles, from the essay behind the library ([full text](./async_philosophy.md)):
+Five principles, from the essay behind the library ([full text](./async_philosophy.md)):
 
 ### 1. Events are the foundation, not an add-on
 
@@ -292,6 +292,16 @@ The `AbortController` saga is a case study in patch-upon-patch: Promises hid the
 ### 4. Structural abstraction is a source of speed, not a tax
 
 There are abstractions that add layers (they cost), and abstractions that change structure (they *win*): the event loop beat thread-per-connection not despite the abstraction but because of it — global knowledge enables scheduling no manual code can match. Same here: path-to-node caching makes exact dispatch a single lookup (millions/sec); clearing a hundred listeners is one tree walk; batching amortizes postMessage because the boundary layer sees all the traffic. You pay only for the flexibility you actually use — wildcards cost more than exact paths, and only when present.
+
+### 5. Unification is the requirement, not the ambition
+
+The natural first impression: *"events, state, TTL, request/response, workers, blue-green — too much in one library."* That reading assumes this is a feature collection. It isn't. It's a single guarantee — **a resource is bound to its owner at creation and dies with it; after `clear`, nothing under that scope still runs** — and the contents are exactly what the guarantee requires: *every kind of resource that lives over time.*
+
+Listeners, timers, stored values, in-flight requests, workers — each is inside not because more is better, but because any kind left outside is a hole in the guarantee. Take the Redis-style state layer: had it been left out, a stored value would once again be something the developer must track *outside the code* — precisely the disease from the ownership table above, reintroduced through the back door. `clear` would run, something would survive, the guarantee would be false. Like an ownership system for memory, a structural guarantee is binary: cover everything in the scope, or promise nothing about it.
+
+So the admission criterion is a test, not an appetite: **does it have a lifetime? Then it must live in the tree.** Nothing was crammed in; nothing required was left out. (And blue-green reload isn't "one more feature" — it's what falls out when the worker itself is a resource in the tree and you ask how to replace a resource without violating its guarantees.)
+
+The honest consequence: you don't adopt a library, you adopt an approach to async-resource ownership — within a scope, all-in or not at all. Gradual adoption works along *scope* boundaries: one page, one worker, one service subtree at a time, each fully inside.
 
 
 
